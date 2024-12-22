@@ -1,4 +1,4 @@
-// File: /home/ubuntu/Downloads/mydir/mainapp/app/page.tsx
+// File: /home/ubuntu/Downloads/dockerapp/app/page.tsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
