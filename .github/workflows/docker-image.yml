@@ -41,6 +41,7 @@ jobs:
                 tags: ${{ secrets.DOCKER_USERNAME }}/frontend-app:latest
 
     deploy-to-server:
+        needs: build-and-push
         runs-on: ubuntu-latest
         environment: production
         concurrency: 
@@ -50,20 +51,21 @@ jobs:
           - name: Install SSH Key
             uses: shimataro/ssh-key-action@v2
             with:
-              key: ${{ secrets.SSH_PRIVATE_KEY }}
-              name: id_rsa
-              known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+              key: ${{ secrets.SSH_PRIVATE_KEY }} # Private SSH key stored in GitHub Secrets
+              name: id_rsa                       # The filename for the SSH key
+              known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }} # Known hosts entry for the production server
               config: |
                 Host production
-                HostName ${{ secrets.PRODUCTION_HOST }}
-                User ${{ secrets.PRODUCTION_USER }}
-                IdentityFile ~/.ssh/id_rsa
-                StrictHostKeyChecking yes
-                - name: Login to Docker Hub
-                uses: docker/login-action@v3
-                with:
-                  username: ${{ secrets.DOCKERHUB_USERNAME }}
-                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+                HostName ${{ secrets.PRODUCTION_HOST }}   # Production server hostname or IP
+                User ${{ secrets.PRODUCTION_USER }}       # SSH username for the server
+                IdentityFile ~/.ssh/id_rsa               # Path to the private SSH key
+                StrictHostKeyChecking yes                # Enforces host key checking for security
+                
+          - name: Login to Docker Hub
+            uses: docker/login-action@v3
+            with:
+              username: ${{ secrets.DOCKERHUB_USERNAME }}
+              password: ${{ secrets.DOCKERHUB_TOKEN }}
         
           - name: Setup remote directory
             run: |
