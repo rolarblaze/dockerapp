@@ -117,7 +117,7 @@ jobs:
               docker system prune -af --volumes
               EOF
               
-          
+              ssh production "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R $USER:$USER ${DEPLOY_PATH}"
               scp deploy.sh production:${DEPLOY_PATH}/deploy.sh
               ssh production "cd ${DEPLOY_PATH} && chmod +x deploy.sh && ./deploy.sh"
               
