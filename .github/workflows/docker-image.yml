@@ -74,13 +74,11 @@ jobs:
 
           - name: Copy configuration files
             run: |
-              scp .env production:${DEPLOY_PATH}/.env
-              scp ${COMPOSE_FILE} production:${DEPLOY_PATH}/docker-compose.yml
-              scp -r ./config/* production:${DEPLOY_PATH}/config/
-
-          - name: Copy configuration files
-            run: |
-              scp .env production:${DEPLOY_PATH}/.env
+              if [ -f .env ]; then
+                scp .env production:${DEPLOY_PATH}/.env
+              else
+                echo ".env file not found, skipping."
+              fi
               scp ${COMPOSE_FILE} production:${DEPLOY_PATH}/docker-compose.yml
               scp -r ./config/* production:${DEPLOY_PATH}/config/
 
