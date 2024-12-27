@@ -72,16 +72,20 @@ jobs:
               ssh production "sudo mkdir -p ${DEPLOY_PATH}/config"
               ssh production "sudo mkdir -p ${DEPLOY_PATH}/data"
 
-          - name: Copy configuration files
+          - name: Copy Configuration Files
             run: |
-              if [ -f .env ]; then
-                scp .env production:${DEPLOY_PATH}/.env
-              else
-                echo ".env file not found, skipping."
-              fi
-              scp ${COMPOSE_FILE} production:${DEPLOY_PATH}/docker-compose.yml
-              scp -r ./config/* production:${DEPLOY_PATH}/config/
-
+                if [ -f .env ]; then
+                  scp .env production:${DEPLOY_PATH}/.env
+                else
+                  echo ".env file not found, skipping."
+                fi
+            
+                if [ -f ${COMPOSE_FILE} ]; then
+                  scp ${COMPOSE_FILE} production:${DEPLOY_PATH}/docker-compose.yml
+                else
+                  echo "${COMPOSE_FILE} not found, skipping."
+                fi
+                scp -r ./config/* production:${DEPLOY_PATH}/config/
           - name: Deploy to production
             run: |
               # Create deployment script
