@@ -59,7 +59,7 @@ jobs:
                 HostName ${{ secrets.PRODUCTION_HOST }}   # Production server hostname or IP
                 User ${{ secrets.PRODUCTION_USER }}       # SSH username for the server
                 IdentityFile ~/.ssh/id_rsa               # Path to the private SSH key
-                StrictHostKeyChecking yes                # Enforces host key checking for security
+                StrictHostKeyChecking no                # Enforces host key checking for security
                 
           - name: Dockerhub Login
             uses: docker/login-action@v2
