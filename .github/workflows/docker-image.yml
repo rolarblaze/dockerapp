@@ -69,8 +69,8 @@ jobs:
         
           - name: Setup remote directory
             run: |
-              ssh production "mkdir -p ${DEPLOY_PATH}/config"
-              ssh production "mkdir -p ${DEPLOY_PATH}/data"
+              ssh production "sudo mkdir -p ${DEPLOY_PATH}/config"
+              ssh production "sudo mkdir -p ${DEPLOY_PATH}/data"
 
           - name: Copy configuration files
             run: |
