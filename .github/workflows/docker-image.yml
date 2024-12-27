@@ -98,23 +98,22 @@ jobs:
               cat << 'EOF' > deploy.sh
               #!/bin/bash
               set -e
-              
-           
-              set -a
-              source .env
-              set +a
-              docker compose pull
-          
-           
-              docker compose config
-              
-           
-              docker compose up -d --remove-orphans
-    
-              timeout 60s bash -c 'until docker compose ps | grep -q "(healthy)"; do sleep 2; done'
-              
-      
-              docker system prune -af --volumes
+
+                if [ -f .env ]; then
+                    set -a
+                    source .env
+                    set +a
+                else
+                    echo "Warning: .env file not found. Proceeding without environment variables."
+                fi
+                
+                docker compose pull
+                docker compose config
+                docker compose up -d --remove-orphans
+                
+                timeout 60s bash -c 'until docker compose ps | grep -q "(healthy)"; do sleep 2; done'
+                
+                docker system prune -af --volumes
               EOF
               
               ssh production "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R azureuser:azureuser ${DEPLOY_PATH}"
