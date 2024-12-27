@@ -4,7 +4,14 @@ on:
     push:
         branches: 
             - main
-
+        paths-ignore:
+          - '**.md'
+          - '.gitignore'
+          - '.env.example'
+env:
+  DOCKER_COMPOSE_VERSION: "2.21.0"  # Pin the version for consistency
+  DEPLOY_PATH: "/opt/myapp"         # Standardized deployment path
+  COMPOSE_FILE: "docker-compose.yml"
 
 jobs:
     build-and-push:
@@ -13,7 +20,9 @@ jobs:
 
         steps:
             - name: Checkout Code
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
+              with:
+                fetch-depth: 0
             
             - name: Setup Docker 
               uses: docker/setup-buildx-action@v2
@@ -23,10 +32,85 @@ jobs:
               with:
                 username: ${{ secrets.DOCKER_USERNAME }}
                 password: ${{secrets.DOCKER_PASSWORD }}
-                
+
             - name: Build and Push Docker Image 
               uses: docker/build-push-action@v4
               with:
                 context: .
                 push: true
                 tags: ${{ secrets.DOCKER_USERNAME }}/frontend-app:latest
+
+    deploy-to-server:
+        runs-on: ubuntu-latest
+        environment: production
+        concurrency: 
+          group: production_environment
+          cancel-in-progress: false
+        steps:
+          - name: Install SSH Key
+            uses: shimataro/ssh-key-action@v2
+            with:
+              key: ${{ secrets.SSH_PRIVATE_KEY }}
+              name: id_rsa
+              known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+              config: |
+                Host production
+                HostName ${{ secrets.PRODUCTION_HOST }}
+                User ${{ secrets.PRODUCTION_USER }}
+                IdentityFile ~/.ssh/id_rsa
+                StrictHostKeyChecking yes
+                - name: Login to Docker Hub
+                uses: docker/login-action@v3
+                with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+        
+          - name: Setup remote directory
+            run: |
+              ssh production "mkdir -p ${DEPLOY_PATH}/config"
+              ssh production "mkdir -p ${DEPLOY_PATH}/data"
+
+          - name: Copy configuration files
+            run: |
+              scp .env production:${DEPLOY_PATH}/.env
+              scp ${COMPOSE_FILE} production:${DEPLOY_PATH}/docker-compose.yml
+              scp -r ./config/* production:${DEPLOY_PATH}/config/
+
+          - name: Copy configuration files
+            run: |
+              scp .env production:${DEPLOY_PATH}/.env
+              scp ${COMPOSE_FILE} production:${DEPLOY_PATH}/docker-compose.yml
+              scp -r ./config/* production:${DEPLOY_PATH}/config/
+
+          - name: Deploy to production
+            run: |
+              # Create deployment script
+              cat << 'EOF' > deploy.sh
+              #!/bin/bash
+              set -e
+              
+           
+              set -a
+              source .env
+              set +a
+              docker compose pull
+          
+           
+              docker compose config
+              
+           
+              docker compose up -d --remove-orphans
+    
+              timeout 60s bash -c 'until docker compose ps | grep -q "(healthy)"; do sleep 2; done'
+              
+      
+              docker system prune -af --volumes
+              EOF
+              
+          
+              scp deploy.sh production:${DEPLOY_PATH}/deploy.sh
+              ssh production "cd ${DEPLOY_PATH} && chmod +x deploy.sh && ./deploy.sh"
+              
+          - name: Verify deployment
+            run: |
+              ssh production "cd ${DEPLOY_PATH} && docker compose ps"
