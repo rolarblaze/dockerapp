@@ -117,7 +117,7 @@ jobs:
                     echo "Error: Neither docker-compose nor docker compose is available."
                     exit 1
                 fi
-                
+                                
                 # Validate docker-compose.yaml presence
                 if [ ! -f "${DEPLOY_PATH}/docker-compose.yaml" ]; then
                     echo "Error: docker-compose.yaml not found in ${DEPLOY_PATH}. Aborting deployment."
