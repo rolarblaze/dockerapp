@@ -106,12 +106,19 @@ jobs:
                 else
                     echo "Warning: .env file not found. Proceeding without environment variables."
                 fi
+                if command -v docker-compose &> /dev/null; then
+                  DOCKER_COMPOSE_CMD="docker-compose"
+                elif docker compose version &> /dev/null; then
+                  DOCKER_COMPOSE_CMD="docker compose"
+                else
+                  echo "Error: Neither docker-compose nor docker compose is available."
+                  exit 1
+                fi
+                $DOCKER_COMPOSE_CMD pull
+                $DOCKER_COMPOSE_CMD config
+                $DOCKER_COMPOSE_CMD up -d --remove-orphans
                 
-                docker compose pull
-                docker compose config
-                docker compose up -d --remove-orphans
-                
-                timeout 60s bash -c 'until docker compose ps | grep -q "(healthy)"; do sleep 2; done'
+                timeout 60s bash -c 'until $DOCKER_COMPOSE_CMD ps | grep -q "(healthy)"; do sleep 2; done'
                 
                 docker system prune -af --volumes
               EOF
