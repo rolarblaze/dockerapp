@@ -80,12 +80,15 @@ jobs:
                 IdentityFile ~/.ssh/id_rsa               # Path to the private SSH key
                 StrictHostKeyChecking no                # Enforces host key checking for security
                 
-            
-        # Prepare the server directories
+      # Add server to known hosts
+        - name: Add to known hosts
+          run: |
+           ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+
+      # Setup Directories on the server
         - name: Setup Directories on Server
           run: |
-            ssh -i ${{ secrets.SSH_PRIVATE_KEY }} ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "sudo mkdir -p ${DEPLOY_PATH}/config && sudo mkdir -p ${DEPLOY_PATH}/data"
-
+           ssh -i ${{ secrets.SSH_PRIVATE_KEY }} ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "sudo mkdir -p ${DEPLOY_PATH}/config && sudo mkdir -p ${DEPLOY_PATH}/data"   
         # Copy configuration files and docker-compose.yaml to the server
         - name: Copy Docker Compose and Config Files
           run: |
