@@ -75,29 +75,38 @@ jobs:
               ssh production "sudo mkdir -p ${DEPLOY_PATH}/config"
               ssh production "sudo mkdir -p ${DEPLOY_PATH}/data"
 
-          - name: Copy Configuration Files
+                    - name: Copy Configuration Files
             run: |
+              if [ -f /home/ubuntu/Downloads/dockerapp/docker-compose.yaml ]; then
+                echo "Copying docker-compose.yaml to production server..."
+                scp /home/ubuntu/Downloads/dockerapp/docker-compose.yaml production:${DEPLOY_PATH}/docker-compose.yaml
+              else
+                echo "Error: docker-compose.yaml file not found locally."
+                exit 1
+              fi
+              
               if [ -f .env ]; then
+                echo "Copying .env file to production server..."
                 scp .env production:${DEPLOY_PATH}/.env
               else
-                echo ".env file not found, skipping."
+                echo "Warning: .env file not found locally."
               fi
-              
-              if [ -f /home/ubuntu/Downloads/dockerapp/docker-compose.yaml ]; then
-                scp /home/ubuntu/Downloads/dockerapp/docker-compose.yaml production:${DEPLOY_PATH}/docker-compose.yml
-              else
-                echo "docker-compose.yaml not found, skipping."
-              fi
-              
-              if [ -d ./config ]; then
-                scp -r ./config/* production:${DEPLOY_PATH}/config/
-              else
-                echo "./config directory not found, skipping."
-              fi
+
+          - name: Verify Deployment Directory
+            run: |
+              ssh production "
+                if [ ! -f ${DEPLOY_PATH}/docker-compose.yaml ]; then
+                  echo 'Error: docker-compose.yaml not found in ${DEPLOY_PATH}.'
+                  exit 1
+                fi
+
+                if [ ! -f ${DEPLOY_PATH}/.env ]; then
+                  echo 'Warning: .env file not found in ${DEPLOY_PATH}.'
+                fi
+              "
 
           - name: Deploy to Production
             run: |
-              # Create deployment script
               cat << 'EOF' > deploy.sh
               #!/bin/bash
               set -e
@@ -116,9 +125,9 @@ jobs:
                   DOCKER_COMPOSE_CMD="docker compose"
               fi
               
-              $DOCKER_COMPOSE_CMD pull
-              $DOCKER_COMPOSE_CMD config
-              $DOCKER_COMPOSE_CMD up -d --remove-orphans
+              $DOCKER_COMPOSE_CMD -f docker-compose.yaml pull
+              $DOCKER_COMPOSE_CMD -f docker-compose.yaml config
+              $DOCKER_COMPOSE_CMD -f docker-compose.yaml up -d --remove-orphans
               
               timeout 60s bash -c "until $DOCKER_COMPOSE_CMD ps | grep -q '(healthy)'; do sleep 2; done"
               
@@ -128,7 +137,3 @@ jobs:
               ssh production "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R azureuser:azureuser ${DEPLOY_PATH}"
               scp deploy.sh production:${DEPLOY_PATH}/deploy.sh
               ssh production "cd ${DEPLOY_PATH} && chmod +x deploy.sh && ./deploy.sh"
-              
-          - name: Verify Deployment
-            run: |
-              ssh production "cd ${DEPLOY_PATH} && docker compose ps"
