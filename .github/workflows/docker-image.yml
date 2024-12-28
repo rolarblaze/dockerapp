@@ -11,7 +11,7 @@ on:
 env:
   DOCKER_COMPOSE_VERSION: "2.21.0"  # Pin the version for consistency
   DEPLOY_PATH: "/opt/myapp"         # Standardized deployment path
-  COMPOSE_FILE: "/home/ubuntu/Downloads/dockerapp/docker-compose.yaml"
+  COMPOSE_FILE: "docker-compose.yaml"
 
 jobs:
     build-and-push:
