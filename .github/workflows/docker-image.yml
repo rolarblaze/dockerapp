@@ -40,7 +40,7 @@ jobs:
                 push: true
                 tags: ${{ secrets.DOCKER_USERNAME }}/frontend-app:latest
 
-    deploy-to-server:
+        deploy-to-server:
         needs: build-and-push
         runs-on: ubuntu-latest
         environment: production
@@ -51,75 +51,84 @@ jobs:
           - name: Install SSH Key
             uses: shimataro/ssh-key-action@v2
             with:
-              key: ${{ secrets.SSH_PRIVATE_KEY }} # Private SSH key stored in GitHub Secrets
-              name: id_rsa                       # The filename for the SSH key
-              known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }} # Known hosts entry for the production server
+              key: ${{ secrets.SSH_PRIVATE_KEY }}
+              name: id_rsa
+              known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
               config: |
                 Host production
-                HostName ${{ secrets.PRODUCTION_HOST }}   # Production server hostname or IP
-                User ${{ secrets.PRODUCTION_USER }}       # SSH username for the server
-                IdentityFile ~/.ssh/id_rsa               # Path to the private SSH key
-                StrictHostKeyChecking no                # Enforces host key checking for security
+                HostName ${{ secrets.PRODUCTION_HOST }}
+                User ${{ secrets.PRODUCTION_USER }}
+                IdentityFile ~/.ssh/id_rsa
+                StrictHostKeyChecking no
                 
-          - name: Dockerhub Login
-            uses: docker/login-action@v2
-            with:
-                username: ${{ secrets.DOCKER_USERNAME }}
-                password: ${{secrets.DOCKER_PASSWORD }}
+          - name: Install Docker Compose on Production Server
+            run: |
+              ssh production "
+                if ! docker compose version && ! docker-compose version; then
+                  sudo apt-get update
+                  sudo apt-get install docker-compose-plugin -y || \
+                  (sudo curl -L 'https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-$(uname -s)-$(uname -m)' -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose)
+                fi"
         
-          - name: Setup remote directory
+          - name: Setup Remote Directory
             run: |
               ssh production "sudo mkdir -p ${DEPLOY_PATH}/config"
               ssh production "sudo mkdir -p ${DEPLOY_PATH}/data"
 
           - name: Copy Configuration Files
             run: |
-                if [ -f .env ]; then
-                  scp .env production:${DEPLOY_PATH}/.env
-                else
-                  echo ".env file not found, skipping."
-                fi
-                
-                if [ -f /home/ubuntu/Downloads/dockerapp/docker-compose.yaml ]; then
-                  scp /home/ubuntu/Downloads/dockerapp/docker-compose.yaml production:${DEPLOY_PATH}/docker-compose.yml
-                else
-                  echo "docker-compose.yaml not found, skipping."
-                fi
-                
-                if [ -d ./config ]; then
-                  scp -r ./config/* production:${DEPLOY_PATH}/config/
-                else
-                  echo "./config directory not found, skipping."
-                fi
+              if [ -f .env ]; then
+                scp .env production:${DEPLOY_PATH}/.env
+              else
+                echo ".env file not found, skipping."
+              fi
+              
+              if [ -f /home/ubuntu/Downloads/dockerapp/docker-compose.yaml ]; then
+                scp /home/ubuntu/Downloads/dockerapp/docker-compose.yaml production:${DEPLOY_PATH}/docker-compose.yml
+              else
+                echo "docker-compose.yaml not found, skipping."
+              fi
+              
+              if [ -d ./config ]; then
+                scp -r ./config/* production:${DEPLOY_PATH}/config/
+              else
+                echo "./config directory not found, skipping."
+              fi
 
-          - name: Deploy to production
+          - name: Deploy to Production
             run: |
               # Create deployment script
               cat << 'EOF' > deploy.sh
               #!/bin/bash
               set -e
 
-                if [ -f .env ]; then
-                    set -a
-                    source .env
-                    set +a
-                else
-                    echo "Warning: .env file not found. Proceeding without environment variables."
-                fi
-                
-                docker compose pull
-                docker compose config
-                docker compose up -d --remove-orphans
-                
-                timeout 60s bash -c 'until docker compose ps | grep -q "(healthy)"; do sleep 2; done'
-                
-                docker system prune -af --volumes
+              if [ -f .env ]; then
+                  set -a
+                  source .env
+                  set +a
+              else
+                  echo "Warning: .env file not found. Proceeding without environment variables."
+              fi
+
+              if command -v docker-compose &> /dev/null; then
+                  DOCKER_COMPOSE_CMD="docker-compose"
+              else
+                  DOCKER_COMPOSE_CMD="docker compose"
+              fi
+              
+              $DOCKER_COMPOSE_CMD pull
+              $DOCKER_COMPOSE_CMD config
+              $DOCKER_COMPOSE_CMD up -d --remove-orphans
+              
+              timeout 60s bash -c "until $DOCKER_COMPOSE_CMD ps | grep -q '(healthy)'; do sleep 2; done"
+              
+              docker system prune -af --volumes
               EOF
               
               ssh production "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R azureuser:azureuser ${DEPLOY_PATH}"
               scp deploy.sh production:${DEPLOY_PATH}/deploy.sh
               ssh production "cd ${DEPLOY_PATH} && chmod +x deploy.sh && ./deploy.sh"
               
-          - name: Verify deployment
+          - name: Verify Deployment
             run: |
               ssh production "cd ${DEPLOY_PATH} && docker compose ps"
