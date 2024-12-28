@@ -11,7 +11,7 @@ on:
 env:
   DOCKER_COMPOSE_VERSION: "2.21.0"  # Pin the version for consistency
   DEPLOY_PATH: "/opt/myapp"         # Standardized deployment path
-  COMPOSE_FILE: "docker-compose.yaml"
+  COMPOSE_FILE: "/opt/myapp/docker-compose.yaml"
 
 jobs:
     build-and-push:
@@ -125,6 +125,7 @@ jobs:
                 fi
                 
                 # Execute deployment steps
+                cd ${DEPLOY_PATH}
                 $DOCKER_COMPOSE_CMD pull
                 $DOCKER_COMPOSE_CMD config
                 $DOCKER_COMPOSE_CMD up -d --remove-orphans
