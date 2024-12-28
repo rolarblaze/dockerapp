@@ -40,7 +40,7 @@ jobs:
                 push: true
                 tags: ${{ secrets.DOCKER_USERNAME }}/frontend-app:latest
 
-        deploy-to-server:
+    deploy-to-server:
         needs: build-and-push
         runs-on: ubuntu-latest
         environment: production
