@@ -75,7 +75,7 @@ jobs:
               ssh production "sudo mkdir -p ${DEPLOY_PATH}/config"
               ssh production "sudo mkdir -p ${DEPLOY_PATH}/data"
 
-                    - name: Copy Configuration Files
+          - name: Copy Configuration Files
             run: |
               if [ -f /home/ubuntu/Downloads/dockerapp/docker-compose.yaml ]; then
                 echo "Copying docker-compose.yaml to production server..."
