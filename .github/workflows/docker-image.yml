@@ -67,12 +67,19 @@ jobs:
             tags: ${{ secrets.DOCKER_USERNAME }}/myapp:latest
 
         # Install SSH key for connecting to the remote server
-        - name: Setup SSH Key
+        - name: Install SSH Key
           uses: shimataro/ssh-key-action@v2
           with:
-            key: ${{ secrets.SSH_PRIVATE_KEY }}
-            known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
-            name: id_rsa
+            key: ${{ secrets.SSH_PRIVATE_KEY }} # Private SSH key stored in GitHub Secrets
+            name: id_rsa                       # The filename for the SSH key
+            known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }} # Known hosts entry for the production server
+            config: |
+                Host production
+                HostName ${{ secrets.PRODUCTION_HOST }}   # Production server hostname or IP
+                User ${{ secrets.PRODUCTION_USER }}       # SSH username for the server
+                IdentityFile ~/.ssh/id_rsa               # Path to the private SSH key
+                StrictHostKeyChecking no                # Enforces host key checking for security
+                
             
         # Prepare the server directories
         - name: Setup Directories on Server
