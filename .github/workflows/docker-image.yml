@@ -74,14 +74,23 @@ jobs:
 
           - name: Copy Configuration Files
             run: |
-                if [ -f /home/ubuntu/Downloads/dockerapp/docker-compose.yaml ]; then
-                  scp /home/ubuntu/Downloads/dockerapp/docker-compose.yaml production:${DEPLOY_PATH}/docker-compose.yaml
-                  echo "docker-compose.yaml copied successfully."
-                else
-                  echo "docker-compose.yaml file not found, skipping."
-                  exit 1
-                fi
-
+              if [ -f .env ]; then
+                scp .env production:${DEPLOY_PATH}/.env
+              else
+                echo ".env file not found, skipping."
+              fi
+              
+              if [ -f /home/ubuntu/Downloads/dockerapp/docker-compose.yaml ]; then
+                scp /home/ubuntu/Downloads/dockerapp/docker-compose.yaml production:${DEPLOY_PATH}/docker-compose.yml
+              else
+                echo "docker-compose.yaml not found, skipping."
+              fi
+              
+              if [ -d ./config ]; then
+                scp -r ./config/* production:${DEPLOY_PATH}/config/
+              else
+                echo "./config directory not found, skipping."
+              fi
           - name: Deploy to production
             run: |
               # Create deployment script
