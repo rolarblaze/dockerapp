@@ -86,9 +86,16 @@ jobs:
            ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
 
       # Setup Directories on the server
-        - name: Setup Directories on Server
-          run: |
-           ssh -i ${{ secrets.SSH_PRIVATE_KEY }} ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "sudo mkdir -p ${DEPLOY_PATH}/config && sudo mkdir -p ${DEPLOY_PATH}/data"   
+        - name: Setup directories on server
+          uses: appleboy/ssh-action@v0.1.0
+          with:
+            host: ${{ secrets.PRODUCTION_HOST }}
+            username: ${{ secrets.PRODUCTION_USER }}
+            key: ${{ secrets.SSH_PRIVATE_KEY }}
+            script: |
+              sudo mkdir -p ${DEPLOY_PATH}/config
+              sudo mkdir -p ${DEPLOY_PATH}/data
+
         # Copy configuration files and docker-compose.yaml to the server
         - name: Copy Docker Compose and Config Files
           run: |
