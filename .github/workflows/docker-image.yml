@@ -9,12 +9,10 @@ on:
           - '.gitignore'
           - '.env.example'
 env:
-  DOCKER_COMPOSE_VERSION: "2.21.0"  # Pin the version for consistency
-  DEPLOY_PATH: "/opt/myapp"         # Standardized deployment path
-  COMPOSE_FILE: "docker-compose.yaml" # Path to docker-compose file
-  PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}  # Set your server IP in GitHub Secrets
-  SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}  # SSH private key stored in GitHub Secrets
-  PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}  # SSH username for the server
+    DOCKER_COMPOSE_VERSION: "2.21.0"
+    DEPLOY_PATH: "/opt/myapp"
+    COMPOSE_FILE: "/opt/myapp/docker-compose.yaml"
+
 jobs:
     build-and-push:
         name: Build and Push Docker Image
@@ -41,100 +39,31 @@ jobs:
                 context: .
                 push: true
                 tags: ${{ secrets.DOCKER_USERNAME }}/frontend-app:latest
+# second job, to deploy the docker compose file 
+    deploy-to-production:
+        needs: build-and-push
+        runs-on: ubuntu-latest
+        environment: production
+        concurrency:
+            group: production_environment
+            cancel-in-progress: false
 
-    build-and-deploy:
-      runs-on: ubuntu-latest
-
-      steps:
-        # Checkout the code
-        - name: Checkout Code
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-
-        # Build and push the Docker image
-        - name: Dockerhub Login
-          uses: docker/login-action@v2
-          with:
-            username: ${{ secrets.DOCKER_USERNAME }}
-            password: ${{ secrets.DOCKER_PASSWORD }}
-
-        - name: Build and Push Docker Image
-          uses: docker/build-push-action@v4
-          with:
-            context: .
-            push: true
-            tags: ${{ secrets.DOCKER_USERNAME }}/myapp:latest
-
-        # Install SSH key for connecting to the remote server
-        - name: Install SSH Key
-          uses: shimataro/ssh-key-action@v2
-          with:
-            key: ${{ secrets.SSH_PRIVATE_KEY }} # Private SSH key stored in GitHub Secrets
-            name: id_rsa                       # The filename for the SSH key
-            known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }} # Known hosts entry for the production server
-            config: |
-                Host production
-                HostName ${{ secrets.PRODUCTION_HOST }}   # Production server hostname or IP
-                User ${{ secrets.PRODUCTION_USER }}       # SSH username for the server
-                IdentityFile ~/.ssh/id_rsa               # Path to the private SSH key
-                StrictHostKeyChecking no                # Enforces host key checking for security
+        steps:
+            - name: install SSH Key 
+              uses: shimataro/ssh-key-action@v2
+              with:
+                key: ${{ secrets.SSH_PRIVATE_KEY }}
+                name: id_rsa
+                known_hosts: ${{secrets.SSH_KNOWN_HOSTS }}
+                config: | 
+                    Hostproduction
+                    HostName ${{ secrets.PRODUCTION_HOST }}
+                    User ${{ secrets.PRODUCTION_USER }}
+                    IdentityFile ~/.ssh/id_rsa
+                    StrictHostKeyChecking no
+            - name: Dockerhub Login 
+              uses: docker/login-action@v2
+              with:
+                username: ${{ secrets.DOCKER_USERNAME }}
+                password: ${{ secrets.DOCKER_PASSWORD }}
                 
-      # Add server to known hosts
-        - name: Add to known hosts
-          run: |
-           ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-
-      # Setup Directories on the server
-        - name: Setup directories on server
-          uses: appleboy/ssh-action@v0.1.0
-          with:
-            host: ${{ secrets.PRODUCTION_HOST }}
-            username: ${{ secrets.PRODUCTION_USER }}
-            key: ${{ secrets.SSH_PRIVATE_KEY }}
-            script: |
-              sudo mkdir -p ${DEPLOY_PATH}/config
-              sudo mkdir -p ${DEPLOY_PATH}/data
-
-        # Copy configuration files and docker-compose.yaml to the server
-        - name: Copy Docker Compose and Config Files
-          run: |
-            scp -i ${{ secrets.SSH_PRIVATE_KEY }} docker-compose.yaml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:${DEPLOY_PATH}/docker-compose.yaml
-            scp -i ${{ secrets.SSH_PRIVATE_KEY }} .env ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:${DEPLOY_PATH}/.env
-            if [ -d ./config ]; then
-              scp -i ${{ secrets.SSH_PRIVATE_KEY }} -r ./config/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:${DEPLOY_PATH}/config/
-            else
-              echo "No config directory to copy."
-            fi
-
-        # Create and run the deployment script on the remote server
-        - name: Deploy Docker Compose on Server
-          run: |
-            ssh -i ${{ secrets.SSH_PRIVATE_KEY }} ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-              #!/bin/bash
-              set -e
-              DEPLOY_PATH="/opt/myapp"
-              
-              # Check if Docker Compose is installed, if not, install it
-              if ! command -v docker-compose &> /dev/null; then
-                echo "Docker Compose not found, installing..."
-                curl -L "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-                chmod +x /usr/local/bin/docker-compose
-              fi
-              
-              # Pull the latest images and start containers
-              cd ${DEPLOY_PATH}
-              docker-compose pull
-              docker-compose up -d --remove-orphans
-              
-              # Wait for services to become healthy
-              timeout 60s bash -c 'until docker-compose ps | grep -q "(healthy)"; do sleep 2; done'
-
-              # Clean up unused Docker images and volumes
-              docker system prune -af --volumes
-            EOF
-
-          # Verify deployment
-        - name: Verify Deployment
-          run: |
-            ssh -i ${{ secrets.SSH_PRIVATE_KEY }} ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "docker-compose ps"
