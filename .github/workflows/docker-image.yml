@@ -66,4 +66,28 @@ jobs:
               with:
                 username: ${{ secrets.DOCKER_USERNAME }}
                 password: ${{ secrets.DOCKER_PASSWORD }}
+            - name: Setup remote directory
+              run: |
+                ssh production "sudo mkdir -p ${ DEPLOY_PATH }/config"
+                ssh production "sudo mkdir -p ${DEPLOY_PATH}/data"
+
+            - name: Copy configuration Files
+              run: | 
+                if [-f .env ]; then
+                    scp .env production:${DEPLOY_PATH}/.env
+                else
+                    echo ".env file not found, skipping"
+                fi
+                if [ -f docker-compose.yaml]; then 
+                    scp docker-compose.yaml
+                    production:${DEPLOY_PATH}/docker-compose.yaml
+                else
+                    echo "docker-compose.yaml not found, skipping"
+                fi
+                if [-d ./config ]; then 
+                    scp -r ./config/* production:${DEPLOY_PATH}/config/
+                else
+                    echo "./config directory not found, skipping"
+
+                fi
                 
