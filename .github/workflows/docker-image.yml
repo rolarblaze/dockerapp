@@ -84,10 +84,9 @@ jobs:
                 else
                     echo "docker-compose.yaml not found, skipping"
                 fi
-                if [-d ./config ]; then 
+                if [ -d ./config ]; then
                     scp -r ./config/* production:${DEPLOY_PATH}/config/
                 else
-                    echo "./config directory not found, skipping"
-
+                    echo "./config directory not found, skipping."
                 fi
                 
